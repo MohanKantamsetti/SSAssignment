@@ -1,0 +1,32 @@
+services:
+ backend:
+  image: localhost/chkoutmanager:latest
+  container_name: backend
+  environment:
+      - DB_SERVICE=mongo                # name of the db service, line 19
+      - DB_PORT=27017 
+      - DB_USER=chkoutmanager_admin      
+      - DB_PASSWORD=chk0ut3aNag3r_d8_4dm1n # Default port: 27017
+      - DB_NAME=admin            
+  ports:
+      - "5000:5000"
+  depends_on:
+      - mongo
+  networks:
+      - chkoutmanager-network
+ mongo:
+  image: localhost/chkoutmanagerdb:latest
+  container_name: db-chkoutmanager
+  environment:
+      - MONGO_INITDB_ROOT_USERNAME=chkoutmanager_admin
+      - MONGO_INITDB_ROOT_PASSWORD=chk0ut3aNag3r_d8_4dm1n
+      - MONGO_INITDB_DATABASE=checkout_db
+  command: mongod --auth --bind_ip_all --dbpath /data/db
+  ports:
+      - "27017:27017"
+  networks:
+      - chkoutmanager-network
+networks:
+  chkoutmanager-network:
+    driver: bridge
+#podman compose --file podman-compose.yml up --detach
