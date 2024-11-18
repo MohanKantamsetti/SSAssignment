@@ -47,11 +47,11 @@ def add_to_cart():
             return jsonify({'message':'Item added to cart!','cart_id':str(cartid)}),200
         return jsonify({'message':'Failed to add item to cart!','status':400}),400    
 
-@app.route('/cart',methods=['GET'])
+@app.route('/cart/<cartid>',methods=['GET'])
 @cross_origin()
-def get_cart():
+def get_cart(cartid):
     if verify_token:
-        cart=Cart.get_cart()
+        cart=Cart.get_cart(cartid)
         if not cart:
             return jsonify({'message':'Cart not found!','status':404}),404
         return jsonify({'message':'Cart fetched!','cart':cart,'status':200})
@@ -64,13 +64,14 @@ def clear_cart(cartid):
         Cart.clear_cart(cartid)
         return jsonify({'message':'Cart cleared!','status':200})        
 
-#delete item from cart
-@app.route('/cart',methods=['DELETE'])
+#update items in cart
+@app.route('/cart/<cartid>',methods=['PATCH'])
 @cross_origin()
-def delete_item():
-    request_data=request.json
+def update_cart(cartid):
     if verify_token:
-        return jsonify({'message':'Item deleted from cart!','status':200})
+        cart=request.json
+        Cart.update_cart(cartid,cart)
+        return jsonify({'message':'Cart updated!','status':200})
 
 #order API
 @app.route('/orders',methods=['POST'])
@@ -87,7 +88,6 @@ def checkout():
 def get_orders():
     if verify_token:
         orders=Order.get_orders()
-        print(orders)
         return jsonify({'message':'Orders fetched!','orders':orders,'status':200})
 
 @app.route('/order/<order_id>',methods=['GET'])
@@ -95,6 +95,8 @@ def get_orders():
 def get_order(order_id):
     if verify_token:
         order=Order.get_order(order_id)
+        if not order:
+            return jsonify({'message':'Order not found!','status':404}),404
         return jsonify({'order':order,'status':200,'message':'Order fetched!'})
     
 @app.route('/order/<order_id>',methods=['PATCH'])

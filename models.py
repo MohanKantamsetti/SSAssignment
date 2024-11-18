@@ -1,19 +1,21 @@
 import pymongo,json,os
 import pika
-db_service  = os.getenv('DB_SERVICE')
-db_port     = os.getenv('DB_PORT')
-db_user     = os.getenv('DB_USER')
-db_pass     = os.getenv('DB_PASSWORD')
-db_auth     = os.getenv('DB_NAME')
-mongo      = pymongo.MongoClient(host=db_service,port=int(db_port),username=db_user,password=db_pass,authSource=db_auth)
-#mongo      = pymongo.MongoClient('localhost',27017)
+try:
+    db_service  = os.getenv('DB_SERVICE')
+    db_port     = os.getenv('DB_PORT')
+    db_user     = os.getenv('DB_USER')
+    db_pass     = os.getenv('DB_PASSWORD')
+    db_auth     = os.getenv('DB_NAME')
+    mongo      = pymongo.MongoClient(host=db_service,port=int(db_port),username=db_user,password=db_pass,authSource=db_auth)
+except:
+    mongo      = pymongo.MongoClient('localhost',27017)
 db=mongo['checkout_db']
 class Payment:
     def __init__(self):
         pass
-    def add_payment(self,payment):
+    def add_payment(payment):
         payment={
-            'payment_id':self.get_paymentid()+1,
+            'payment_id':Payment.get_paymentid()+1,
             'payment_amount':payment['payment_amount'],
             'payment_date':payment['payment_date'],
             'payment_status':payment['payment_status'],
@@ -23,10 +25,17 @@ class Payment:
         res=db.payments.insert_one(payment)
         return res.inserted_id
     
+    def get_paymentid():
+        payment_id=0
+        paymentid=db.payments.find().sort('payment_id',-1).limit(1)
+        for i in paymentid:
+            payment_id=i['payment_id']
+        return payment_id
+
     def get_payment(paymentid):
         paymentid=int(paymentid)
         payment=db.payments.find_one({'payment_id':paymentid})
-        if not payment.__sizeof__==0:
+        if payment is not None:
             payment['_id']=str(payment['_id']) #convert the object id to string
             return payment
         else:
@@ -35,9 +44,17 @@ class Payment:
 class Cart:
     def __init__(self):
         pass
-    def add_to_cart(self,cart):
+
+    def get_cartid():
+        cart_id=0
+        cartid=db.carts.find().sort('cart_id',-1).limit(1)
+        for i in cartid:
+            cart_id=i['cart_id']
+        return cart_id
+
+    def add_to_cart(cart):
         cart={
-            'cart_id':self.get_cartid()+1,
+            'cart_id':Cart.get_cartid()+1,
             'cart_items':cart['cart_items'],
             'cart_total':cart['cart_total'],
             'cart_date':cart['cart_date'],
@@ -48,13 +65,18 @@ class Cart:
     def get_cart(cart_id):
         cart_id=int(cart_id)
         cart=db.carts.find_one({'cart_id':cart_id})
-        if not cart.__sizeof__==0:
+        if cart is not None:
             cart['_id']=str(cart['_id']) #convert the object id to string
             return cart
         else:
-            return []
+            return None
     
-    def clear_cart(self,cart_id):
+    def update_cart(cart_id,cart):
+        cart_id=int(cart_id)
+        return db.carts.update_one({'cart_id':cart_id},{'$set':cart})
+    
+    def clear_cart(cart_id):
+        cart_id=int(cart_id)
         return db.carts.delete_one({'cart_id':cart_id})
 
 class Order:
@@ -85,8 +107,13 @@ class Order:
             'order_shipment':order['order_shipment'],
             'order_tracking':order['order_tracking'],
         }
+        for item in order['order_items']:
+            product_id=item['product_id']
+            quantity=item['quantity']
+            publish_order({'product_id':product_id,'Quantity':quantity},'product_queue')
         publish_order(order_notification)
         return res.inserted_id
+    
     @staticmethod
     def get_orders():
         all_orders=[]
@@ -108,7 +135,7 @@ class Order:
     def get_order(order_id):
         order_id=int(order_id)
         order=db.orders.find_one({'order_id':order_id})
-        if not order.__sizeof__==0:
+        if order is not None:
             order['_id']=str(order['_id']) #convert the object id to string
             return order
         else:
@@ -121,12 +148,12 @@ class Order:
         return db.orders.delete_one({'order_id':order_id})
 
 #rabbitmq connection
-def publish_order(order):
+def publish_order(order,route='order_queue'):
     #auth
     user=os.getenv('RABBITMQ_USER')
     password=os.getenv('RABBITMQ_PASSWORD')
     connection=pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq',credentials=pika.PlainCredentials(user,password)))
     channel=connection.channel()
-    channel.queue_declare(queue='order_queue')
+    channel.queue_declare(queue=route)
     channel.basic_publish(exchange='',routing_key='order_queue',body=json.dumps(order))
     connection.close()
