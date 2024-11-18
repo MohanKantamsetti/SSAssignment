@@ -1,7 +1,7 @@
 from flask import Flask,request,jsonify,Response
 from flask_cors import CORS, cross_origin
 import json, jwt, datetime, os
-from models import Order
+from models import Order, Payment, Cart
 app=Flask(__name__)
 cors=CORS(app)
 
@@ -14,7 +14,66 @@ def home():
 def verify_token():
     return True
 
-@app.route('/checkout',methods=['POST'])
+#Payment API
+@app.route('/payment',methods=['POST'])
+@cross_origin()
+def payment():
+    if verify_token:
+        payment=request.json
+        payment['payment_date']=datetime.datetime.now()
+        paymentid=Payment.add_payment(payment)
+        if paymentid:
+            return jsonify({'message':'Payment successful!','payment_id':str(paymentid)}),200
+        return jsonify({'message':'Payment failed!','status':400}),400
+
+@app.route('/payment/<payment_id>',methods=['GET'])
+@cross_origin()
+def get_payment(payment_id):
+    if verify_token:
+        payment=Payment.get_payment(payment_id)
+        if payment:
+            return jsonify({'payment':payment,'status':200,'message':'Payment fetched!'}),200
+        return jsonify({'message':'Payment not found!','status':404}),404
+
+#cart API
+@app.route('/cart',methods=['POST'])
+@cross_origin()
+def add_to_cart():
+    if verify_token:
+        cart=request.json
+        cart['cart_date']=datetime.datetime.now()
+        cartid=Cart.add_to_cart(cart)
+        if cartid:
+            return jsonify({'message':'Item added to cart!','cart_id':str(cartid)}),200
+        return jsonify({'message':'Failed to add item to cart!','status':400}),400    
+
+@app.route('/cart',methods=['GET'])
+@cross_origin()
+def get_cart():
+    if verify_token:
+        cart=Cart.get_cart()
+        if not cart:
+            return jsonify({'message':'Cart not found!','status':404}),404
+        return jsonify({'message':'Cart fetched!','cart':cart,'status':200})
+
+#delete all items from cart    
+@app.route('/cart/<cartid>',methods=['DELETE'])
+@cross_origin()
+def clear_cart(cartid):
+    if verify_token:
+        Cart.clear_cart(cartid)
+        return jsonify({'message':'Cart cleared!','status':200})        
+
+#delete item from cart
+@app.route('/cart',methods=['DELETE'])
+@cross_origin()
+def delete_item():
+    request_data=request.json
+    if verify_token:
+        return jsonify({'message':'Item deleted from cart!','status':200})
+
+#order API
+@app.route('/orders',methods=['POST'])
 @cross_origin()
 def checkout():
     if verify_token:
@@ -38,7 +97,7 @@ def get_order(order_id):
         order=Order.get_order(order_id)
         return jsonify({'order':order,'status':200,'message':'Order fetched!'})
     
-@app.route('/order/<order_id>',methods=['PUT'])
+@app.route('/order/<order_id>',methods=['PATCH'])
 @cross_origin()
 def update_order(order_id):
     if verify_token:

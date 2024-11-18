@@ -1,4 +1,78 @@
 services:
+ kong-db:
+    image: postgres:13
+    container_name: kong-db
+    networks:
+        - chkoutmanager-network
+    environment:
+        POSTGRES_USER: kong
+        POSTGRES_DB: kong
+        POSTGRES_PASSWORD: kong
+    healthcheck:
+        test: "pg_isready -U kong"
+        interval: 30s
+        timeout: 30s
+        retries: 3
+    restart: always
+
+ kong:
+  image: kong:2.8
+  container_name: kong
+  networks:
+    - chkoutmanager-network
+  environment:
+    KONG_DATABASE: postgres
+    KONG_PG_HOST: kong-db
+    KONG_PG_USER: kong
+    KONG_PG_PASSWORD: kong
+    KONG_PG_DATABASE: kong
+    KONG_PROXY_ACCESS_LOG: /dev/stdout
+    KONG_ADMIN_ACCESS_LOG: /dev/stdout
+    KONG_PROXY_ERROR_LOG: /dev/stderr
+    KONG_ADMIN_ERROR_LOG: /dev/stderr
+    KONG_ADMIN_LISTEN: '0.0.0.0:8001'
+  ports:
+    - "8000:8000"
+    - "8001:8001"
+  depends_on:
+    - kong-db
+  command: >
+    /bin/sh -c "
+      kong migrations bootstrap &&
+      kong migrations up &&
+      kong start
+    "
+
+ rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+        - "5672:5672"
+        - "15672:15672"
+    networks:
+        - chkoutmanager-network
+    environment:
+        RABBITMQ_DEFAULT_USER: chkoutmanager
+        RABBITMQ_DEFAULT_PASS: chk0ut3aNag3r
+    healthcheck:
+        test: "rabbitmqctl node_health_check"
+        interval: 30s
+        timeout: 30s
+        retries: 3
+    restart: always
+
+ email-service:
+    image: localhost/emailserve:latest
+    container_name: email-service
+    networks:
+        - chkoutmanager-network
+    depends_on:
+        - rabbitmq
+        - backend
+    environment:
+        - RABBITMQ_USER=chkoutmanager
+        - RABBITMQ_PASSWORD=chk0ut3aNag3r
+
  backend:
   image: localhost/chkoutmanager:latest
   container_name: backend
@@ -7,13 +81,18 @@ services:
       - DB_PORT=27017 
       - DB_USER=chkoutmanager_admin      
       - DB_PASSWORD=chk0ut3aNag3r_d8_4dm1n # Default port: 27017
-      - DB_NAME=admin            
+      - DB_NAME=admin
+      - RABBITMQ_USER=chkoutmanager
+      - RABBITMQ_PASSWORD=chk0ut3aNag3r
+
   ports:
       - "5000:5000"
   depends_on:
-      - mongo
+        - mongo
+        - rabbitmq
   networks:
       - chkoutmanager-network
+
  mongo:
   image: localhost/chkoutmanagerdb:latest
   container_name: db-chkoutmanager
