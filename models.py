@@ -155,5 +155,5 @@ def publish_order(order,route='order_queue'):
     connection=pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq',credentials=pika.PlainCredentials(user,password)))
     channel=connection.channel()
     channel.queue_declare(queue=route)
-    channel.basic_publish(exchange='',routing_key='order_queue',body=json.dumps(order))
+    channel.basic_publish(exchange='',routing_key=route,body=json.dumps(order))
     connection.close()

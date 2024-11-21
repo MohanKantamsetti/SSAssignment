@@ -54,13 +54,13 @@ The architecture consists of the following components:
    cd <dir>
    ```
 
-2. **Configure Environment Variables**:
-   - Set up `.env` files or environment variables for RabbitMQ, MongoDB, and SMTP credentials.
+2. **Configure smtp_config.py **:
+   - Set up your gmail and add smtp email and smtp password 
 
 3. **Build and Start Services**:
    - Use Podman Compose to build and start all services:
    ```bash
-   podman-compose up --build
+   podman compose --file podman-compose.yml up --detach
    ```
 
 4. **Initialize Kong**:
@@ -71,9 +71,6 @@ The architecture consists of the following components:
 
 ## Usage
 
-- **Access the API**: Interact with the application via the API Gateway at `http://localhost:8000`.
-- **Administer Kong**: Use Kong's Admin API at `http://localhost:8001` to manage services and routes.
-
 ## API Gateway Configuration
 
 - **Kong Setup**: Use the Kong Admin API to configure services, routes, and JWT authentication.
@@ -81,6 +78,9 @@ The architecture consists of the following components:
   ```bash
   curl -i -X POST http://localhost:8001/services/ --data "name=checkoutservice" --data "url=http://backend:5000"
   ```
+
+- **Access the API**: Interact with the application via the API Gateway at `http://localhost:8000` (if kong is configured, else :) `http://localhost:5000`
+- **Administer Kong**: Use Kong's Admin API at `http://localhost:8001` to manage services and routes.
 
 ## Contributing
 
